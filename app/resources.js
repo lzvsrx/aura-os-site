@@ -1,0 +1,9 @@
+// Resource definitions contain labels, not clinical recommendations.
+globalThis.AuraResources={
+  prescriptions:{title:'Prescrições informadas',singular:'Registrar prescrição existente',fields:[['title','Nome do medicamento','text'],['instructions','Transcreva exatamente a orientação existente','textarea'],['prescriber','Profissional informado','text'],['source','Origem da prescrição','text'],['validUntil','Validade informada','date']]},
+  carePlans:{title:'Terapias e cuidados',singular:'Registrar plano de cuidado',fields:[['title','Título do plano','text'],['content','Orientações do plano existente','textarea'],['responsible','Profissional responsável informado','text'],['source','Origem do plano','text'],['validUntil','Validade informada','date']]},
+  nutritionPlans:{title:'Alimentação',singular:'Registrar plano alimentar existente',fields:[['title','Título do plano','text'],['content','Orientações, preferências e restrições registradas','textarea'],['responsible','Profissional responsável informado','text'],['source','Origem do plano','text'],['validUntil','Validade informada','date']]},
+  activityPlans:{title:'Atividade e reabilitação',singular:'Registrar plano de atividade existente',fields:[['title','Título do plano','text'],['content','Orientações e limites do plano existente','textarea'],['responsible','Profissional responsável informado','text'],['source','Origem do plano','text'],['validUntil','Validade informada','date']]},
+  boards:{title:'Minhas frases',singular:'Criar frase de comunicação',fields:[['title','Nome da frase','text'],['phrase','O que você quer comunicar?','textarea'],['symbol','Símbolo ou palavra curta','text']]},
+  documents:{title:'Documentos em texto',singular:'Guardar texto de um documento',fields:[['title','Título do documento','text'],['content','Texto do documento','textarea'],['source','Origem do documento','text']]}
+};

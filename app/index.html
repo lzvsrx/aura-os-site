@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101326"><meta name="description" content="Seu espaço de autonomia: rotina, comunicação e acessibilidade sob seu controle.">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="stylesheet" href="./styles.css">
+  <title>AURA OS · Seu espaço de autonomia</title>
+</head>
+<body>
+  <a class="skip" href="#main">Pular para o conteúdo</a>
+  <div id="app"></div>
+  <div id="status" class="toast" role="status" aria-live="polite"></div>
+  <dialog id="modal" aria-labelledby="modal-title"></dialog>
+  <link rel="manifest" href="./manifest.webmanifest"><script src="./static-config.js"></script><script src="./resources.js" defer></script>
+  <script src="./offline.js" defer></script>
+  <script src="./importers.js" defer></script>
+  <script src="./app.js" type="module"></script>
+</body>
+</html>
