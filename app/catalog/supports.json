@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "clinicallyReviewed": false,
+  "principle": "Deficiência não é sinônimo de doença nem uma falha a ser eliminada. Apoios devem respeitar as escolhas da pessoa, sua participação e as barreiras do ambiente.",
+  "sources": [
+    {"title":"OMS — Funcionalidade, deficiência e saúde (CIF)","url":"https://www.who.int/standards/classifications/international-classification-of-functioning-disability-and-health"},
+    {"title":"OMS — Tecnologia assistiva","url":"https://www.who.int/news-room/fact-sheets/detail/assistive-technology"},
+    {"title":"OMS — Reabilitação","url":"https://www.who.int/news-room/fact-sheets/detail/rehabilitation"}
+  ],
+  "profiles": [
+    {"title":"Visão e leitura","options":["Ampliar texto, ajustar contraste e oferecer conteúdo compatível com leitor de tela.","Avaliar recursos como óculos, bengala e produtos de apoio com profissional habilitado, conforme a necessidade."]},
+    {"title":"Audição e acesso à comunicação","options":["Oferecer legendas, transcrições e formas visuais de comunicação.","Avaliar produtos de apoio auditivo conforme a preferência e a indicação individual."]},
+    {"title":"Mobilidade e atividades diárias","options":["Eliminar barreiras nos ambientes e permitir diferentes formas de usar os controles.","Avaliar cadeira de rodas, próteses e outros produtos de apoio com ajuste e acompanhamento adequados."]},
+    {"title":"Fala e expressão","options":["Disponibilizar comunicação por texto, símbolos, frases e recursos de comunicação alternativa.","Preservar tempo e autonomia para a pessoa se expressar."]},
+    {"title":"Memória, atenção e organização","options":["Usar instruções claras, lembretes e ferramentas de organização do tempo.","Ajustar apresentação e ritmo às escolhas da pessoa."]},
+    {"title":"Necessidades combinadas e participação","options":["Combinar recursos de apoio em estudo, trabalho e atividades escolhidas pela pessoa.","Planejar avaliação e reabilitação individualizadas, sem presumir as necessidades apenas pelo diagnóstico."]}
+  ],
+  "careResources": [
+    {"title":"Reabilitação: intervenções essenciais para 20 condições (OMS)","url":"https://www.who.int/publications/b/65871","status":"Recurso técnico; não cobre todas as condições nem substitui avaliação individual."},
+    {"title":"Pesquisa clínica e tratamentos experimentais (ClinicalTrials.gov)","url":"https://clinicaltrials.gov/study-basics/learn-about-studies","status":"Pesquisa pode ter riscos e não garantir benefício. Estudo registrado não significa tratamento aprovado."},
+    {"title":"Avaliação de abordagens complementares (NCCIH/NIH)","url":"https://www.nccih.nih.gov/health/are-you-considering-a-complementary-health-approach","status":"Verifique evidência, riscos e interações. Popularidade ou uso histórico não comprovam eficácia."},
+    {"title":"Classificação de doenças — CID-11 (OMS)","url":"https://icd.who.int/browse/","status":"Classificação não é um manual de tratamento. A base integral da CID/CIF não foi importada."}
+  ]
+}
