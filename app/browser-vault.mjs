@@ -18,7 +18,7 @@ async function checkPassword(file,value){let check;try{check=await opened(file,t
 function throttle(){failures=failures.filter(t=>Date.now()-t<900000);if(failures.length>=8)throw fail(429,'Aguarde antes de tentar novamente.');}
 async function request(path,method,body,mutationId){
   let file=await stored();
-  if(path==='status'&&method==='GET')return {initialized:!!file,identityRequired:false,userSubject:'browser-local',version:'0.4.0-rc.1',mode:'browser',localAI:false};
+  if(path==='status'&&method==='GET')return {initialized:!!file,identityRequired:false,userSubject:'browser-local',version:'0.4.0-rc.2',mode:'browser',localAI:false};
   if(['setup','unlock'].includes(path)&&method==='POST'){
     throttle();let result;
     try{
