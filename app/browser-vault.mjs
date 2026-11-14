@@ -3,11 +3,15 @@ import {emptyState,validateState} from './domain/state.mjs';
 import {text,validate} from './domain/validation.mjs';
 import {resourceCollections,requireResourceConsent} from './domain/resources.mjs';
 import {assistantReply} from './domain/assistant.mjs';
+import {queryBrowserModel,stopBrowserAI} from './browser-ai.mjs';
 const kinds=new Set(['tasks','notes','memories','journal','contacts','consents','feedback',...resourceCollections]);
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 const audit=(state,action,object)=>{state.audit.push({id:crypto.randomUUID(),at:new Date().toISOString(),action,object});state.audit=state.audit.slice(-1000);};
 let session=null,failures=[],database;
-function lock(){session?.key.fill(0);session=null;previews.clear();}
+const channel=globalThis.BroadcastChannel?new BroadcastChannel('aura-vault-events'):null;
+if(channel)channel.onmessage=({data})=>{if(data==='lock'){lock();globalThis.dispatchEvent(new Event('aura-vault-external-lock'));}if(data==='stop-ai')stopBrowserAI();};
+const notifyLock=()=>channel?.postMessage('lock');
+function lock(){stopBrowserAI();session?.key.fill(0);session=null;previews.clear();}
 const previews=new Map();
 async function db(){return database??=new Promise((resolve,reject)=>{const r=indexedDB.open('aura-browser-vault',1);r.onupgradeneeded=()=>r.result.createObjectStore('vault');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.onblocked=()=>reject(new Error('Feche outras abas antigas do AURA e tente novamente.'));});}
 async function stored(value,write=false){const database=await db();return new Promise((resolve,reject)=>{const tx=database.transaction('vault',write?'readwrite':'readonly'),store=tx.objectStore('vault');const r=write?(value===null?store.delete('personal'):store.put(value,'personal')):store.get('personal');let result;r.onsuccess=()=>{result=r.result;};tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('A gravação foi cancelada.'));});}
@@ -18,7 +22,11 @@ async function checkPassword(file,value){let check;try{check=await opened(file,t
 function throttle(){failures=failures.filter(t=>Date.now()-t<900000);if(failures.length>=8)throw fail(429,'Aguarde antes de tentar novamente.');}
 async function request(path,method,body,mutationId){
   let file=await stored();
-  if(path==='status'&&method==='GET')return {initialized:!!file,identityRequired:false,userSubject:'browser-local',version:'0.4.0-rc.2',mode:'browser',localAI:false};
+  if(path==='status'&&method==='GET')return {initialized:!!file,identityRequired:false,userSubject:'browser-local',version:'0.5.0',mode:'browser',localAI:true,browserAI:true};
+  if(path==='import'&&method==='POST'){
+    if(file)throw fail(409,'O cofre já existe. Use Restaurar em Privacidade para substituir seus dados.');if(body.confirm!=='IMPORTAR')throw fail(400,'Confirme a importação do cofre.');
+    let check;try{check=await opened(body.backup,text(body.backupPassword,200));await stored(body.backup,true);}catch{throw fail(400,'Arquivo ou senha inválidos. Nenhum cofre foi criado.');}finally{check?.key.fill(0);}return {ok:true};
+  }
   if(['setup','unlock'].includes(path)&&method==='POST'){
     throttle();let result;
     try{
@@ -29,12 +37,12 @@ async function request(path,method,body,mutationId){
   }
   if(path==='recover'&&method==='POST'){
     throttle();let recovery,old;
-    try{if(!file?.recovery||!/^[-_A-Za-z0-9]{43}$/.test(body.code))throw new Error('Código inválido.');recovery=bytes(body.code.replaceAll('-','+').replaceAll('_','/')+'=');old=bytes((await decrypt(file.recovery,recovery)).key);const state=await decrypt(file,old);validateState(state);state.revision++;const created=await newEnvelope(state,password(body.newPassword));try{await stored(created.file,true);}finally{created.key.fill(0);}lock();return {ok:true};}
+    try{if(!file?.recovery||!/^[-_A-Za-z0-9]{43}$/.test(body.code))throw new Error('Código inválido.');recovery=bytes(body.code.replaceAll('-','+').replaceAll('_','/')+'=');old=bytes((await decrypt(file.recovery,recovery)).key);const state=await decrypt(file,old);validateState(state);state.revision++;const created=await newEnvelope(state,password(body.newPassword));try{await stored(created.file,true);}finally{created.key.fill(0);}lock();notifyLock();return {ok:true};}
     catch(error){failures.push(Date.now());throw fail(400,'Não foi possível recuperar. Confira o código e a nova senha.');}finally{recovery?.fill(0);old?.fill(0);}
   }
   const active=auth();
   if(path==='session'&&method==='GET')return {csrf:active.csrf,reauthFresh:Date.now()-active.reauthAt<300000};
-  if(path==='lock'&&method==='POST'){lock();return {ok:true};}
+  if(path==='lock'&&method==='POST'){lock();notifyLock();return {ok:true};}
   let state;try{state=await decrypt(file,active.key);}catch{lock();throw fail(401,'O cofre foi alterado em outra aba. Abra-o novamente.');}
   if(path==='state'&&method==='GET')return state;
   if(mutationId&&kinds.has(path.split('/')[0])){if(!/^[a-f0-9-]{36}$/.test(mutationId))throw fail(400,'Identificador de operação inválido.');state.syncApplied??=[];if(state.syncApplied.includes(mutationId))return state;state.syncApplied.push(mutationId);}
@@ -42,16 +50,16 @@ async function request(path,method,body,mutationId){
   if(['backup','export','erase','recovery/enable'].includes(path)&&Date.now()-active.reauthAt>=300000)throw fail(403,'Confirme sua senha novamente.');
   if(path==='backup'&&method==='POST'){if(body.confirm!=='BACKUP')throw fail(400,'Confirme o backup.');return file;}
   if(path==='export'&&method==='POST'){if(body.confirm!=='EXPORTAR')throw fail(400,'Confirme a exportação.');return state;}
-  if(path==='erase'&&method==='POST'){if(body.confirm!=='APAGAR TUDO')throw fail(400,'Confirme a exclusão.');await stored(null,true);lock();return {ok:true};}
+  if(path==='erase'&&method==='POST'){if(body.confirm!=='APAGAR TUDO')throw fail(400,'Confirme a exclusão.');await stored(null,true);lock();notifyLock();return {ok:true};}
   if(path==='restore'&&method==='POST'){
     if(body.confirm!=='RESTAURAR')throw fail(400,'Confirme a restauração.');await checkPassword(file,body.currentPassword);
-    const backup=body.backup;let check;try{check=await opened(backup,text(body.backupPassword,200));await stored(backup,true);}catch{throw fail(400,'Backup inválido ou senha incorreta. O cofre anterior foi preservado.');}finally{check?.key.fill(0);}lock();return {ok:true};
+    const backup=body.backup;let check;try{check=await opened(backup,text(body.backupPassword,200));await stored(backup,true);}catch{throw fail(400,'Backup inválido ou senha incorreta. O cofre anterior foi preservado.');}finally{check?.key.fill(0);}lock();notifyLock();return {ok:true};
   }
   if(path==='recovery/enable'&&method==='POST'){
     if(body.confirm!=='CRIAR RECUPERACAO')throw fail(400,'Confirme a criação.');const key=crypto.getRandomValues(new Uint8Array(32));
     try{file.recovery=await encrypt({key:base64(active.key)},key);audit(state,'recovery-enabled','vault');state.revision++;await stored({...file,...await encrypt(state,active.key)},true);return {code:base64(key).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,''),oneTime:true};}finally{key.fill(0);}
   }
-  if(path==='assistant'&&method==='POST'){if(body.useModel)throw fail(400,'O modelo generativo exige a plataforma local.');return assistantReply(text(body.message,4000),state);}
+  if(path==='assistant'&&method==='POST'){return assistantReply(text(body.message,4000),state);}
   if(path==='actions/preview'&&method==='POST'){
     if(body.kind!=='tasks')throw fail(400,'Use uma atividade pessoal.');const data=validate('tasks',body.data);if(['consulta','medicamento'].includes(data.category))throw fail(400,'Use os registros manuais de saúde.');
     for(const [id,p]of previews)if(p.expires<Date.now())previews.delete(id);if(previews.size>=20)throw fail(429,'Revise as prévias pendentes.');const id=crypto.randomUUID();previews.set(id,{data,revision:state.revision,expires:Date.now()+300000});return {id,preview:data,source:'Campos informados por você; a criação exige confirmação.'};
@@ -65,17 +73,22 @@ async function request(path,method,body,mutationId){
     for(const k of ['simple','reducedMotion'])if(typeof body[k]==='boolean')state.preferences[k]=body[k];
     if(body.name)state.profile.name=text(body.name,100);if(body.timezone){new Intl.DateTimeFormat('pt-BR',{timeZone:body.timezone});state.profile.timezone=body.timezone;}audit(state,'update','preferences');
   }else{
-    const [kind,id,...rest]=path.split('/');if(rest.length||!kinds.has(kind)||!['POST','PATCH','DELETE'].includes(method))throw fail(404,'Recurso indisponível no cofre deste navegador. AURA ID, delegação e IA generativa exigem o modo Plataforma.');
+    const [kind,id,...rest]=path.split('/');if(rest.length||!kinds.has(kind)||!['POST','PATCH','DELETE'].includes(method))throw fail(404,'Recurso indisponível no cofre deste navegador. AURA ID e delegação exigem o modo Plataforma.');
     if(kind==='grants')throw fail(400,'A delegação exige o modo Plataforma com AURA ID.');
     if(method!=='DELETE'){requireResourceConsent(state,kind);const scope=kind==='journal'?'health':kind==='memories'?'memory':null;if(scope&&!state.consents.some(c=>c.scope===scope&&c.granted))throw fail(403,'Autorize este registro em Privacidade.');}
     if(method==='POST'&&!id){if(state[kind].length>=5000)throw fail(400,'Limite de registros atingido.');const item={...validate(kind,body),id:crypto.randomUUID(),createdAt:new Date().toISOString()};if(kind==='medicationEvents'&&!state.prescriptions.some(p=>p.id===item.prescriptionId))throw fail(400,'Prescrição não encontrada.');if(kind==='consents')state.consents=state.consents.filter(c=>c.scope!==item.scope);state[kind].push(item);}
     else if(id){const index=state[kind].findIndex(i=>i.id===id);if(index<0)throw fail(404,'Registro não encontrado.');if(method==='DELETE')state[kind].splice(index,1);else{const old=state[kind][index],item={...old,...validate(kind,{...old,...body}),updatedAt:new Date().toISOString()};if(kind==='tasks'&&body.done===true&&!old.done&&!old.nextOccurrenceId&&['daily','weekly'].includes(old.recurrence)){if(state.tasks.length>=5000)throw fail(400,'Limite de atividades atingido.');item.nextOccurrenceId=crypto.randomUUID();state.tasks.push({...old,id:item.nextOccurrenceId,startsAt:new Date(Date.parse(old.startsAt)+(old.recurrence==='daily'?86400000:604800000)).toISOString(),done:false,createdAt:new Date().toISOString()});}state[kind][index]=item;}}
     else throw fail(405,'Informe o registro.');audit(state,method.toLowerCase(),kind);
   }
-  state.revision++;state.syncApplied=state.syncApplied?.slice(-2000);await stored({...file,...await encrypt(state,active.key)},true);return state;
+  state.revision++;state.syncApplied=state.syncApplied?.slice(-2000);await stored({...file,...await encrypt(state,active.key)},true);if(path==='consents'&&body.scope==='localAI'&&body.granted!==true){stopBrowserAI();channel?.postMessage('stop-ai');}return state;
 }
 export async function browserAPI(path,method='GET',body={},mutationId){
   if(!globalThis.isSecureContext||!navigator.locks||!globalThis.indexedDB)throw fail(503,'Este navegador precisa oferecer HTTPS, IndexedDB e Web Locks.');
+  if(path==='assistant'&&method==='POST'&&body?.useModel){
+    const snapshot=await navigator.locks.request('aura-browser-vault',async()=>({state:await request('state','GET',{}),sessionId:auth().csrf}));
+    const result=await queryBrowserModel({message:text(body.message,4000),state:snapshot.state,includeNotes:body.includeNotes===true});
+    return navigator.locks.request('aura-browser-vault',async()=>{if(auth().csrf!==snapshot.sessionId)throw fail(401,'A sessão mudou durante o processamento.');const latest=await request('state','GET',{});if(!latest.consents.some(c=>c.scope==='localAI'&&c.granted))throw fail(403,'O consentimento da IA foi revogado durante o pedido.');return structuredClone(result);});
+  }
   return navigator.locks.request('aura-browser-vault',async()=>structuredClone(await request(path,method,body||{},mutationId)));
 }
 globalThis.addEventListener('pagehide',lock);
