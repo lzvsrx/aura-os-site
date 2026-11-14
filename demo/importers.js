@@ -12,14 +12,8 @@ globalThis.AuraImporters={
         const pdf=await task.promise;if(pdf.numPages>100)throw new Error('Este importador aceita até 100 páginas por arquivo.');
         const pages=[];for(let n=1;n<=pdf.numPages;n++){progress(`Lendo página ${n} de ${pdf.numPages}…`);const page=await pdf.getPage(n),content=await page.getTextContent();pages.push(content.items.map(item=>item.str||'').join(' '));page.cleanup();if(pages.join('\n').length>50000)throw new Error('O texto excede 50.000 caracteres. Importe um trecho menor.');}text=pages.join('\n\n');
       }finally{clearTimeout(timer);await task.destroy();}
-    }else if(/\.(png|jpe?g|webp)$/.test(name)){
-      progress('Carregando OCR local em português…');
-      const {default:Tesseract}=await import('./vendor/ocr/tesseract.esm.min.js');const {createWorker}=Tesseract;
-      const worker=await createWorker('por',1,{workerPath:'./vendor/ocr/worker.min.js',corePath:'./vendor/ocr/core',langPath:'./vendor/ocr/lang',gzip:false,workerBlobURL:false,cacheMethod:'none',logger:message=>{if(message.status==='recognizing text')progress('Reconhecendo texto: '+Math.round((message.progress||0)*100)+'%');}});
-      const timer=setTimeout(()=>worker.terminate(),60000);
-      try{const result=await worker.recognize(file);text=result.data.text;}finally{clearTimeout(timer);await worker.terminate();}
-    }else throw new Error('Use TXT, Markdown, PDF, PNG, JPEG ou WebP.');
-    text=text.trim();if(!text)throw new Error('Nenhum texto encontrado. Um PDF digitalizado pode exigir OCR de suas páginas.');if(text.length>50000)throw new Error('O texto excede 50.000 caracteres. Importe um trecho menor.');
+    }else throw new Error('Use TXT, Markdown ou PDF com texto. Imagens não são reconhecidas: esta edição não usa OCR treinado.');
+    text=text.trim();if(!text)throw new Error('Nenhum texto encontrado. PDFs digitalizados sem texto não são reconhecidos nesta edição.');if(text.length>50000)throw new Error('O texto excede 50.000 caracteres. Importe um trecho menor.');
     return {title:file.name,content:text,source:'Arquivo local: '+file.name};
   }
 };
